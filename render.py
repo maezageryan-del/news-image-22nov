@@ -32,6 +32,14 @@ TINT_RED = (244, 214, 208)
 TINT_GOLD = (244, 232, 196)
 TINT_GREEN = (216, 234, 214)
 TINT_GREY = (232, 228, 216)
+TICKER_RED = (160, 28, 22)
+TINT_PURPLE = (232, 226, 240)
+TINT_ORANGE = (250, 232, 210)
+TINT_TEAL = (214, 234, 230)
+# Subtle tinted panel backgrounds, one per region (newsprint-light, not garish).
+REGION_TINT = {"Europe": TINT_BLUE, "Asia": TINT_RED, "Middle East": TINT_ORANGE,
+               "Africa": TINT_GREEN, "Americas": TINT_PURPLE, "Oceania": TINT_TEAL,
+               "Global": TINT_GREY}
 
 FONT_DIR = "/usr/share/fonts/truetype/dejavu"
 
@@ -87,11 +95,18 @@ def hatch(d, x0, y0, x1, y1, step=7, fill=(200, 190, 165)):
         x += step
 
 
+def vgrad(d, x, y, w, h, c0, c1):
+    """Vertical gradient: one interpolated colour per row (deterministic)."""
+    for i in range(h):
+        t = i / max(1, h - 1)
+        col = tuple(round(c0[k] + (c1[k] - c0[k]) * t) for k in range(3))
+        d.line([(x, y + i), (x + w - 1, y + i)], fill=col)
+
+
 # --- flat pictograms (one per story) -------------------------------------
 def ill_globe(d, x, y, w, h):
-    # Sky gradient: three blue bands behind the globe.
-    for i, col in enumerate([(226, 236, 244), (214, 228, 240), (196, 216, 234)]):
-        d.rectangle([x, y + i * h / 3, x + w, y + (i + 1) * h / 3 + 1], fill=col)
+    # Sky gradient: smooth vertical blend, deepening toward the horizon.
+    vgrad(d, x, y, w, h, (230, 240, 247), (176, 202, 230))
     cx, cy, r = x + w * 0.38, y + h * 0.52, min(w, h) * 0.34
     d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=BLUE, outline=INK, width=2)
     # Landmasses on the globe: two green blobs clipped by the disc.
@@ -110,9 +125,8 @@ def ill_globe(d, x, y, w, h):
 
 
 def ill_bahrain(d, x, y, w, h):
-    # Dusk gradient sky: three bands, dark orange to near-black.
-    for i, col in enumerate([(74, 48, 34), (52, 38, 32), (32, 26, 24)]):
-        d.rectangle([x, y + i * h / 3, x + w, y + (i + 1) * h / 3 + 1], fill=col)
+    # Dusk gradient sky: smooth blend from burnt-orange dusk to near-black.
+    vgrad(d, x, y, w, h, (86, 56, 38), (24, 18, 16))
     for bx, bw, bh in [(0.06, 0.20, 0.55), (0.30, 0.16, 0.72), (0.50, 0.22, 0.48), (0.76, 0.16, 0.62)]:
         d.rectangle([x + w * bx, y + h - h * bh, x + w * (bx + bw), y + h], fill=(20, 16, 14))
         for wy in range(3):
@@ -129,7 +143,8 @@ def ill_bahrain(d, x, y, w, h):
 
 def ill_prison(d, x, y, w, h):
     import math
-    d.rectangle([x, y, x + w, y + h], fill=(38, 40, 52))
+    # Cell-wall gradient: smooth blend from slate blue-grey to near-black.
+    vgrad(d, x, y, w, h, (48, 50, 64), (20, 21, 30))
     d.rectangle([x + w * 0.08, y + h * 0.14, x + w * 0.60, y + h * 0.86],
                 fill=(24, 25, 34), outline=GOLD, width=2)
     for i in range(5):
@@ -331,21 +346,21 @@ def main():
            W // 2, 5, font(12, bold=True), PAPER)
 
     # --- 2. masthead -------------------------------------------------------
-    centre(d, "THE WORLD IN ONE DAY", W // 2, 30, font(12, bold=True), RED)
-    centre(d, "Sunday 22 November 2026", W // 2, 42, font(44, bold=True, serif=True), INK)
-    # Ticker as a red band (white on red): the strongest first-screen pull
-    # after the masthead, in the winning broadsheet's own idiom.
-    d.rectangle([16, 88, 1008, 106], fill=RED)
+    centre(d, "THE WORLD IN ONE DAY", W // 2, 29, font(13, bold=True), RED)
+    centre(d, "Sunday 22 November 2026", W // 2, 40, font(44, bold=True, serif=True), INK)
+    # Ticker as a deeper red band (white on red): the strongest first-screen
+    # pull after the masthead, in the winning broadsheet's own idiom. Moved
+    # down so the date's descenders clear it (v1 clipped the 'y' in Sunday).
+    d.rectangle([16, 92, 1008, 110], fill=TICKER_RED)
     centre(d, "COP31 deal tabled  ·  Bahrain hit again  ·  El Chapo Isidro held  ·  Sparta II ablaze",
-           W // 2, 91, font(13, bold=True), PAPER2)
-    d.line([(16, 109), (1008, 109)], fill=INK, width=1)
+           W // 2, 95, font(14, bold=True), PAPER2)
 
     # --- 3. timeline spine -------------------------------------------------
     # One thin line, four dots, one short label under each dot. The labels
     # sit fully above the numbers strip (strip top is y=140).
     stops = [("SAT NIGHT", "Bahrain hit"), ("OVERNIGHT", "COP31 text tabled"),
              ("06:00 GMT", "Approval session"), ("TONIGHT", "Las Vegas GP 20:00 PST")]
-    ty = 112
+    ty = 114
     d.line([(40, ty + 4), (984, ty + 4)], fill=GREY, width=2)
     for i, (t, e) in enumerate(stops):
         cx = 140 + i * 248
@@ -353,7 +368,8 @@ def main():
         centre(d, t + " — " + e, cx, ty + 13, font(10, bold=True), INK)
 
     # --- 4. numbers strip: big numerals, one cell per figure --------------
-    d.rectangle([0, 140, W, 188], fill=TINT_GOLD)
+    # Subtle vertical gradient in the numbers strip (gold deepening downward).
+    vgrad(d, 0, 140, W, 48, (247, 235, 200), (237, 221, 174))
     nums = [("4th", "Bahrain strike in 9 days"), ("11", "killed in Sinaloa"),
             ("€1bn", "EU aid for Kyiv"), ("$75,000", "Seoul exam bounty"),
             ("420 m", "Hagia Sophia tunnels"), ("50", "laps · Las Vegas GP")]
@@ -385,17 +401,17 @@ def main():
         s = by_n[n]
         x = 16 + i * (lw + gap)
         d.rectangle([x + 3, ly + 3, x + lw + 3, ly + lh + 3], fill=(210, 202, 182))
-        d.rectangle([x, ly, x + lw, ly + lh], fill=PAPER2, outline=INK, width=2)
+        d.rectangle([x, ly, x + lw, ly + lh], fill=REGION_TINT[s["region"]], outline=INK, width=2)
         d.rectangle([x + 2, ly + 2, x + lw - 2, ly + 18], fill=RED)
         d.text((x + 10, ly + 4), str(n), font=font(13, bold=True), fill=PAPER2)
         d.text((x + 30, ly + 4), KICKER[n],
                font=font(10, bold=True), fill=PAPER2)
-        ILL[n](d, x + 2, ly + 18, lw - 4, 76)
+        ILL[n](d, x + 2, ly + 18, lw - 4, 84)
         hy = draw_lines(d, wrap(s["headline"], font(18, bold=True, serif=True), lw - 20),
-                        x + 10, ly + 98, font(18, bold=True, serif=True), INK, 21, max_lines=2)
+                        x + 10, ly + 104, font(18, bold=True, serif=True), INK, 20, max_lines=2)
         d.line([(x + 10, hy + 2), (x + 70, hy + 2)], fill=RED, width=2)
         draw_lines(d, wrap(SHORT_DECK[n], font(10), lw - 20), x + 10, hy + 7,
-                   font(10), (60, 54, 44), 12, max_lines=3)
+                   font(10), (60, 54, 44), 11, max_lines=3)
         d.text((x + 10, ly + lh - 14), "SOURCE: " + s["source"].upper(),
                font=font(9, bold=True), fill=RED)
         d.text((x + lw - 10 - font(9, bold=True).getlength(s["region"].upper()),
@@ -410,7 +426,7 @@ def main():
         y = my + row * (mh + 2)
         s = by_n[n]
         d.rectangle([x + 2, y + 2, x + mw + 2, y + mh + 2], fill=(210, 202, 182))
-        d.rectangle([x, y, x + mw, y + mh], fill=PAPER2, outline=INK, width=1)
+        d.rectangle([x, y, x + mw, y + mh], fill=REGION_TINT[s["region"]], outline=INK, width=1)
         ILL[n](d, x + 1, y + 1, mw - 2, 36)
         d.rectangle([x + 1, y + 1, x + mw - 1, y + 4], fill=REGION_COLOURS[s["region"]])
         d.ellipse([x + 5, y + 5, x + 23, y + 23], fill=REGION_COLOURS[s["region"]], outline=PAPER2, width=1)
@@ -420,10 +436,16 @@ def main():
         draw_lines(d, wrap(SHORT_DECK[n], font(9), mw - 12), x + 6, hy + 2,
                    font(9), (60, 54, 44), 10, max_lines=2)
         d.text((x + 6, y + mh - 11), s["source"].upper(), font=font(8, bold=True), fill=RED)
+        # Section tag: region name, bottom-right in the region colour.
+        d.text((x + mw - 6 - font(8, bold=True).getlength(s["region"].upper()),
+                y + mh - 11), s["region"].upper(), font=font(8, bold=True),
+               fill=REGION_COLOURS[s["region"]])
 
     # --- 8. world map --------------------------------------------------------
     map_y, map_h = 622, 134
-    d.rectangle([16, map_y, 1008, map_y + map_h], fill=BLUE_DK, outline=INK, width=2)
+    # Ocean gradient: deep blue lightening slightly toward the bottom.
+    vgrad(d, 16, map_y, 992, map_h, (18, 52, 96), (14, 40, 78))
+    d.rectangle([16, map_y, 1008, map_y + map_h], outline=INK, width=2)
     centre(d, "WHERE IT HAPPENED", W // 2, map_y + 4, font(13, bold=True, serif=True), PAPER)
     # Halftone ocean: fixed dot grid in a lighter blue for texture.
     for yy in range(map_y + 24, map_y + map_h - 4, 9):
